@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useWallet } from "@/lib/wallet/WalletProvider";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import {
   getSupportRequests,
   submitSupportRequest,
@@ -34,6 +35,8 @@ export default function RequestsPageClient() {
   const [submitState, setSubmitState] = useState<SubmitState>({ status: "idle" });
   const [upvoteError, setUpvoteError] = useState<string | null>(null);
 
+  const debouncedName = useDebouncedValue(name, 300);
+
   const refresh = useCallback(() => {
     setRequests(getSupportRequests());
   }, []);
@@ -45,6 +48,11 @@ export default function RequestsPageClient() {
   const alreadySupported = useMemo(
     () => (name.trim() ? isAlreadySupported(kind, name) : false),
     [kind, name],
+  );
+
+  const liveAlreadySupported = useMemo(
+    () => (debouncedName.trim() ? isAlreadySupported(kind, debouncedName) : false),
+    [kind, debouncedName],
   );
 
   const handleSubmit = useCallback(
@@ -123,8 +131,18 @@ export default function RequestsPageClient() {
             minLength={NAME_MIN_LENGTH}
             maxLength={NAME_MAX_LENGTH}
             required
+            aria-describedby={liveAlreadySupported ? "request-name-hint" : undefined}
             className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
           />
+          {liveAlreadySupported && (
+            <p
+              id="request-name-hint"
+              role="status"
+              className="text-sm text-amber-700 dark:text-amber-400"
+            >
+              {t("requests.form.alreadySupportedHint")}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-1">
@@ -204,11 +222,9 @@ export default function RequestsPageClient() {
               type="button"
               onClick={() => handleUpvote(request.id)}
               disabled={!address}
-              aria-label={t("requests.upvote")}
-              className="flex shrink-0 items-center gap-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="shrink-0 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
             >
-              <span aria-hidden="true">▲</span>
-              <span>{request.upvoters.length}</span>
+              {t("requests.upvote")} ({request.upvotes.length})
             </button>
           </li>
         ))}
